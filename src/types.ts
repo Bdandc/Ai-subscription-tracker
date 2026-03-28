@@ -17,6 +17,16 @@ export interface Subscription {
   nextBillingDate: string;
   description?: string;
   icon?: string;
+  status?: 'active' | 'cancelled' | 'paused';
+}
+
+export interface Purchase {
+  id: string;
+  service: string;
+  amount: number;
+  currency: string;
+  purchaseDate: string;
+  notes?: string;
 }
 
 export interface SpendingInsight {

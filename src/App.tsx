@@ -128,6 +128,13 @@ export default function App() {
     } catch (e) { console.error('Failed to delete', e); }
   };
 
+  const handleMoveSubscription = async (sub: Subscription, targetListId: string) => {
+    try {
+      const updated = await updateSubscription({ ...sub, listId: targetListId });
+      setSubscriptions(prev => prev.map(s => s.id === updated.id ? updated : s));
+    } catch (e) { console.error('Failed to move subscription', e); }
+  };
+
   // --- Purchase handlers ---
   const handleSavePurchase = async (p: Purchase) => {
     try {
@@ -276,8 +283,10 @@ export default function App() {
                       </div>
                       <SubscriptionList
                         subscriptions={subs}
+                        lists={lists}
                         onEdit={(sub) => { setActiveListId(list.id); setEditingSub(sub); setIsSubFormOpen(true); }}
                         onDelete={handleDeleteSubscription}
+                        onMove={handleMoveSubscription}
                       />
                     </div>
                   ))}
@@ -348,8 +357,10 @@ export default function App() {
               <h2 className="text-sm font-bold text-[--muted-foreground] uppercase tracking-widest px-1">Subscriptions</h2>
               <SubscriptionList
                 subscriptions={activeSubs}
+                lists={lists}
                 onEdit={(sub) => { setEditingSub(sub); setIsSubFormOpen(true); }}
                 onDelete={handleDeleteSubscription}
+                onMove={handleMoveSubscription}
               />
             </div>
 

@@ -1,15 +1,67 @@
-import { Edit2, Trash2, Calendar, CreditCard } from 'lucide-react';
-import { Subscription } from '../types';
+import { useState, useRef, useEffect } from 'react';
+import { Edit2, Trash2, Calendar, CreditCard, FolderInput } from 'lucide-react';
+import { Subscription, TrackerList } from '../types';
 import { format } from 'date-fns';
 import { CURRENCY_SYMBOLS } from '../constants';
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];
+  lists?: TrackerList[];
   onEdit: (sub: Subscription) => void;
   onDelete: (id: string) => void;
+  onMove?: (sub: Subscription, targetListId: string) => void;
 }
 
-export default function SubscriptionList({ subscriptions, onEdit, onDelete }: SubscriptionListProps) {
+function MovePopover({
+  sub,
+  lists,
+  onMove,
+  onClose,
+}: {
+  sub: Subscription;
+  lists: TrackerList[];
+  onMove: (sub: Subscription, targetListId: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const targets = lists.filter(l => l.id !== sub.listId);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  if (targets.length === 0) {
+    return (
+      <div ref={ref} className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 text-xs text-[--muted-foreground] whitespace-nowrap">
+        No other lists to move to.
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+      <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[--muted-foreground]">Move to</p>
+      {targets.map(list => (
+        <button
+          key={list.id}
+          onClick={() => { onMove(sub, list.id); onClose(); }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[--muted] transition-colors text-sm text-left"
+        >
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
+          <span className="font-medium text-[--foreground]">{list.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function SubscriptionList({ subscriptions, lists = [], onEdit, onDelete, onMove }: SubscriptionListProps) {
+  const [movingSubId, setMovingSubId] = useState<string | null>(null);
+
   if (subscriptions.length === 0) {
     return (
       <div className="card p-12 flex flex-col items-center justify-center text-center">
@@ -61,7 +113,27 @@ export default function SubscriptionList({ subscriptions, onEdit, onDelete }: Su
                 {sub.billingCycle === 'yearly' ? 'Per Year' : 'Per Month'}
               </p>
             </div>
+
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onMove && lists.length > 1 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setMovingSubId(movingSubId === sub.id ? null : sub.id)}
+                    className="p-2 hover:bg-[--muted] rounded-lg text-[--muted-foreground] hover:text-violet-500 transition-colors"
+                    title="Move to another list"
+                  >
+                    <FolderInput className="w-4 h-4" />
+                  </button>
+                  {movingSubId === sub.id && (
+                    <MovePopover
+                      sub={sub}
+                      lists={lists}
+                      onMove={onMove}
+                      onClose={() => setMovingSubId(null)}
+                    />
+                  )}
+                </div>
+              )}
               <button
                 onClick={() => onEdit(sub)}
                 className="p-2 hover:bg-[--muted] rounded-lg text-[--muted-foreground] hover:text-blue-500 transition-colors"

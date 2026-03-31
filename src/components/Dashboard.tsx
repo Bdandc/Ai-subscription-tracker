@@ -4,9 +4,10 @@ import { EXCHANGE_RATES } from '../constants';
 interface DashboardProps {
   subscriptions: Subscription[];
   purchases: Purchase[];
+  allView?: boolean;
 }
 
-export default function Dashboard({ subscriptions, purchases }: DashboardProps) {
+export default function Dashboard({ subscriptions, purchases, allView }: DashboardProps) {
   const totalMonthlyGBP = subscriptions.reduce((acc, sub) => {
     const rate = EXCHANGE_RATES[sub.currency] || 1;
     const amountInGBP = sub.amount * rate;
@@ -30,7 +31,7 @@ export default function Dashboard({ subscriptions, purchases }: DashboardProps) 
     <div className="space-y-3">
       {/* Main total */}
       <div className="card p-8 flex flex-col items-center text-center">
-        <p className="text-sm font-bold uppercase tracking-widest text-[--muted-foreground]">Total Monthly Burn</p>
+        <p className="text-sm font-bold uppercase tracking-widest text-[--muted-foreground]">{allView ? 'Combined Monthly Burn' : 'Total Monthly Burn'}</p>
         <h3 className="text-6xl font-black mt-4 text-[--foreground] tracking-tighter">£{totalMonthlyGBP.toFixed(2)}</h3>
         <p className="text-sm mt-2 font-medium text-[--muted-foreground]">£{totalAnnualGBP.toFixed(2)} per year</p>
         <p className="text-sm mt-3 font-medium bg-[--muted] text-[--muted-foreground] px-3 py-1 rounded-full">

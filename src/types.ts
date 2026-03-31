@@ -2,6 +2,7 @@ export interface TrackerList {
   id: string;
   name: string;
   color: string;
+  hiddenFromAll: boolean;
 }
 
 export type SubscriptionCategory =

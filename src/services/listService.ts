@@ -6,6 +6,7 @@ function fromRow(row: Record<string, unknown>): TrackerList {
     id: row.id as string,
     name: row.name as string,
     color: row.color as string,
+    hiddenFromAll: row.hidden_from_all as boolean ?? false,
   };
 }
 
@@ -22,7 +23,7 @@ export async function fetchLists(): Promise<TrackerList[]> {
 export async function createList(list: Omit<TrackerList, 'id'>): Promise<TrackerList> {
   const { data, error } = await supabase
     .from('tracker_lists')
-    .insert({ name: list.name, color: list.color })
+    .insert({ name: list.name, color: list.color, hidden_from_all: false })
     .select()
     .single();
 
@@ -33,13 +34,17 @@ export async function createList(list: Omit<TrackerList, 'id'>): Promise<Tracker
 export async function updateList(list: TrackerList): Promise<TrackerList> {
   const { data, error } = await supabase
     .from('tracker_lists')
-    .update({ name: list.name, color: list.color })
+    .update({ name: list.name, color: list.color, hidden_from_all: list.hiddenFromAll })
     .eq('id', list.id)
     .select()
     .single();
 
   if (error) throw error;
   return fromRow(data);
+}
+
+export async function toggleHiddenFromAll(list: TrackerList): Promise<TrackerList> {
+  return updateList({ ...list, hiddenFromAll: !list.hiddenFromAll });
 }
 
 export async function deleteList(id: string): Promise<void> {

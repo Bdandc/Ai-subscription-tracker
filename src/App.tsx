@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, CreditCard, Moon, Sun, Zap, Pencil, Trash2, LayoutList } from 'lucide-react';
+import { Plus, CreditCard, Moon, Sun, Zap, Pencil, Trash2, LayoutList, Eye, EyeOff } from 'lucide-react';
 import { Subscription, Purchase, TrackerList } from './types';
 import {
   fetchSubscriptions,
@@ -8,7 +8,7 @@ import {
   deleteSubscription,
 } from './services/subscriptionService';
 import { fetchPurchases, createPurchase, deletePurchase } from './services/purchaseService';
-import { fetchLists, createList, updateList, deleteList } from './services/listService';
+import { fetchLists, createList, updateList, deleteList, toggleHiddenFromAll } from './services/listService';
 import Dashboard from './components/Dashboard';
 import SubscriptionList from './components/SubscriptionList';
 import SubscriptionForm from './components/SubscriptionForm';
@@ -16,9 +16,11 @@ import PurchaseList from './components/PurchaseList';
 import PurchaseForm from './components/PurchaseForm';
 import ListForm from './components/ListForm';
 
+const ALL_TAB = 'all';
+
 export default function App() {
   const [lists, setLists] = useState<TrackerList[]>([]);
-  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [activeListId, setActiveListId] = useState<string>(ALL_TAB);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,9 +46,6 @@ export default function App() {
       setLists(loadedLists);
       setSubscriptions(subs);
       setPurchases(purch);
-      if (loadedLists.length > 0) {
-        setActiveListId(prev => prev ?? loadedLists[0].id);
-      }
     } catch (e) {
       console.error('Failed to load data', e);
     } finally {
@@ -56,8 +55,18 @@ export default function App() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const activeList = lists.find(l => l.id === activeListId);
-  const activeSubs = subscriptions.filter(s => s.listId === activeListId);
+  const isAllTab = activeListId === ALL_TAB;
+  const activeList = isAllTab ? undefined : lists.find(l => l.id === activeListId);
+  const activeSubs = isAllTab
+    ? subscriptions.filter(s => !lists.find(l => l.id === s.listId)?.hiddenFromAll)
+    : subscriptions.filter(s => s.listId === activeListId);
+
+  // Subscriptions grouped by list for All view
+  const visibleLists = lists.filter(l => !l.hiddenFromAll);
+  const groupedSubs = visibleLists.map(list => ({
+    list,
+    subs: subscriptions.filter(s => s.listId === list.id),
+  })).filter(g => g.subs.length > 0);
 
   // --- List handlers ---
   const handleSaveList = async (list: TrackerList) => {
@@ -81,16 +90,23 @@ export default function App() {
       await deleteList(id);
       setLists(prev => {
         const remaining = prev.filter(l => l.id !== id);
-        if (activeListId === id) setActiveListId(remaining[0]?.id ?? null);
+        if (activeListId === id) setActiveListId(ALL_TAB);
         return remaining;
       });
       setSubscriptions(prev => prev.filter(s => s.listId !== id));
     } catch (e) { console.error('Failed to delete list', e); }
   };
 
+  const handleToggleHidden = async (list: TrackerList) => {
+    try {
+      const updated = await toggleHiddenFromAll(list);
+      setLists(prev => prev.map(l => l.id === updated.id ? updated : l));
+    } catch (e) { console.error('Failed to toggle visibility', e); }
+  };
+
   // --- Subscription handlers ---
   const handleSaveSubscription = async (sub: Subscription) => {
-    const subWithList = { ...sub, listId: activeListId! };
+    const subWithList = { ...sub, listId: activeListId };
     try {
       if (editingSub) {
         const updated = await updateSubscription(subWithList);
@@ -160,7 +176,7 @@ export default function App() {
                 <span className="hidden sm:inline">Top-up</span>
               </button>
             )}
-            {activeListId && (
+            {!isAllTab && activeListId && (
               <button
                 onClick={() => { setEditingSub(undefined); setIsSubFormOpen(true); }}
                 className="flex items-center gap-2 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg"
@@ -177,6 +193,20 @@ export default function App() {
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Lists tab bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {/* All tab */}
+          <button
+            onClick={() => setActiveListId(ALL_TAB)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all active:scale-95 border-2"
+            style={
+              isAllTab
+                ? { backgroundColor: '#1e293b', color: '#fff', borderColor: '#1e293b' }
+                : { backgroundColor: 'transparent', color: 'var(--muted-foreground)', borderColor: 'var(--border)' }
+            }
+          >
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isAllTab ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />
+            All
+          </button>
+
           {lists.map(list => (
             <button
               key={list.id}
@@ -184,8 +214,13 @@ export default function App() {
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all active:scale-95 border-2"
               style={
                 activeListId === list.id
-                  ? { backgroundColor: list.color, color: '#fff', borderColor: list.color }
-                  : { backgroundColor: 'transparent', color: 'var(--muted-foreground)', borderColor: 'var(--border)' }
+                  ? { backgroundColor: list.color, color: '#fff', borderColor: list.color, opacity: 1 }
+                  : {
+                      backgroundColor: 'transparent',
+                      color: list.hiddenFromAll ? 'var(--muted-foreground)' : 'var(--muted-foreground)',
+                      borderColor: list.hiddenFromAll ? 'var(--border)' : 'var(--border)',
+                      opacity: list.hiddenFromAll ? 0.5 : 1,
+                    }
               }
             >
               <span
@@ -193,8 +228,10 @@ export default function App() {
                 style={{ backgroundColor: activeListId === list.id ? 'rgba(255,255,255,0.6)' : list.color }}
               />
               {list.name}
+              {list.hiddenFromAll && <EyeOff className="w-3 h-3 ml-0.5 opacity-60" />}
             </button>
           ))}
+
           <button
             onClick={() => { setEditingList(undefined); setIsListFormOpen(true); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all active:scale-95 border-2 border-dashed border-[--border] text-[--muted-foreground] hover:border-blue-400 hover:text-blue-500"
@@ -206,6 +243,48 @@ export default function App() {
 
         {loading ? (
           <div className="card p-12 text-center text-[--muted-foreground] text-sm">Loading…</div>
+        ) : isAllTab ? (
+          /* ── ALL TAB ── */
+          lists.length === 0 ? (
+            <div className="card p-12 flex flex-col items-center text-center">
+              <LayoutList className="w-10 h-10 text-[--muted-foreground] mb-3" />
+              <h3 className="text-lg font-semibold text-[--foreground]">No lists yet</h3>
+              <p className="text-[--muted-foreground] mt-1 text-sm">Create a list to start tracking expenses.</p>
+              <button
+                onClick={() => { setEditingList(undefined); setIsListFormOpen(true); }}
+                className="mt-4 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all active:scale-95"
+              >
+                Create your first list
+              </button>
+            </div>
+          ) : (
+            <>
+              <Dashboard subscriptions={activeSubs} purchases={purchases} allView />
+
+              {groupedSubs.length === 0 ? (
+                <div className="card p-8 text-center text-[--muted-foreground] text-sm">
+                  No subscriptions across visible lists.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {groupedSubs.map(({ list, subs }) => (
+                    <div key={list.id} className="space-y-3">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
+                        <h3 className="text-sm font-bold text-[--muted-foreground] uppercase tracking-widest">{list.name}</h3>
+                        <span className="text-xs text-[--muted-foreground]">· {subs.length} sub{subs.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <SubscriptionList
+                        subscriptions={subs}
+                        onEdit={(sub) => { setActiveListId(list.id); setEditingSub(sub); setIsSubFormOpen(true); }}
+                        onDelete={handleDeleteSubscription}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )
         ) : !activeList ? (
           <div className="card p-12 flex flex-col items-center text-center">
             <LayoutList className="w-10 h-10 text-[--muted-foreground] mb-3" />
@@ -219,8 +298,8 @@ export default function App() {
             </button>
           </div>
         ) : (
+          /* ── INDIVIDUAL LIST TAB ── */
           <>
-            {/* Active list header with edit/delete */}
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: activeList.color }} />
@@ -230,6 +309,13 @@ export default function App() {
                 </span>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleToggleHidden(activeList)}
+                  className={`p-1.5 hover:bg-[--muted] rounded-lg transition-colors ${activeList.hiddenFromAll ? 'text-amber-500' : 'text-[--muted-foreground] hover:text-amber-500'}`}
+                  title={activeList.hiddenFromAll ? 'Show in All view' : 'Hide from All view'}
+                >
+                  {activeList.hiddenFromAll ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
                 <button
                   onClick={() => { setEditingList(activeList); setIsListFormOpen(true); }}
                   className="p-1.5 hover:bg-[--muted] rounded-lg text-[--muted-foreground] hover:text-blue-500 transition-colors"
@@ -249,9 +335,15 @@ export default function App() {
               </div>
             </div>
 
+            {activeList.hiddenFromAll && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                <EyeOff className="w-3.5 h-3.5 flex-shrink-0" />
+                This list is hidden from the All view. Click the eye icon above to include it.
+              </div>
+            )}
+
             <Dashboard subscriptions={activeSubs} purchases={isAiList ? purchases : []} />
 
-            {/* Subscriptions */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold text-[--muted-foreground] uppercase tracking-widest px-1">Subscriptions</h2>
               <SubscriptionList
@@ -261,7 +353,6 @@ export default function App() {
               />
             </div>
 
-            {/* Credit Top-ups — AI list only */}
             {isAiList && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">

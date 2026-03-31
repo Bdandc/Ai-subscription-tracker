@@ -28,12 +28,17 @@ export default function SubscriptionForm({ onSave, onClose, initialData }: Subsc
       description: '',
     }
   );
+  const [amountStr, setAmountStr] = useState(
+    initialData?.amount != null ? String(initialData.amount) : ''
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.amount) return;
+    const amount = parseFloat(amountStr);
+    if (!formData.name || isNaN(amount) || amount <= 0) return;
     onSave({
       ...formData,
+      amount,
       id: initialData?.id || crypto.randomUUID(),
     } as Subscription);
   };
@@ -85,10 +90,11 @@ export default function SubscriptionForm({ onSave, onClose, initialData }: Subsc
                 <input
                   type="number"
                   required
+                  min="0.01"
                   step="0.01"
                   className={`${inputClass} pl-8`}
-                  value={formData.amount}
-                  onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                  value={amountStr}
+                  onChange={e => setAmountStr(e.target.value)}
                 />
               </div>
             </div>

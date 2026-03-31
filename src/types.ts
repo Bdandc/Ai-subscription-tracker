@@ -1,14 +1,21 @@
-export type SubscriptionCategory = 
-  | 'Entertainment' 
-  | 'Software' 
-  | 'Health' 
-  | 'Utilities' 
-  | 'Finance' 
-  | 'Education' 
+export interface TrackerList {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export type SubscriptionCategory =
+  | 'Entertainment'
+  | 'Software'
+  | 'Health'
+  | 'Utilities'
+  | 'Finance'
+  | 'Education'
   | 'Other';
 
 export interface Subscription {
   id: string;
+  listId: string;
   name: string;
   amount: number;
   currency: string;

@@ -4,6 +4,7 @@ import { Subscription } from '../types';
 function toRow(sub: Subscription) {
   return {
     id: sub.id,
+    list_id: sub.listId,
     name: sub.name,
     amount: sub.amount,
     currency: sub.currency,
@@ -18,6 +19,7 @@ function toRow(sub: Subscription) {
 function fromRow(row: Record<string, unknown>): Subscription {
   return {
     id: row.id as string,
+    listId: row.list_id as string,
     name: row.name as string,
     amount: Number(row.amount),
     currency: row.currency as string,

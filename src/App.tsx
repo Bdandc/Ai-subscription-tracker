@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, CreditCard, Moon, Sun, Zap, Pencil, Trash2, LayoutList, Eye, EyeOff } from 'lucide-react';
+import { Plus, CreditCard, Moon, Sun, Zap, Pencil, Trash2, LayoutList, Eye, EyeOff, LogOut } from 'lucide-react';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from './lib/supabase';
 import { Subscription, Purchase, TrackerList } from './types';
 import {
   fetchSubscriptions,
@@ -18,7 +20,7 @@ import ListForm from './components/ListForm';
 
 const ALL_TAB = 'all';
 
-export default function App() {
+export default function App({ session: _session }: { session: Session }) {
   const [lists, setLists] = useState<TrackerList[]>([]);
   const [activeListId, setActiveListId] = useState<string>(ALL_TAB);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -166,6 +168,13 @@ export default function App() {
             <h1 className="text-xl font-bold text-[--foreground] tracking-tight">SubTrack AI</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="p-2 rounded-xl text-[--muted-foreground] hover:bg-[--muted] transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setDark(d => !d)}
               className="p-2 rounded-xl text-[--muted-foreground] hover:bg-[--muted] transition-colors"
